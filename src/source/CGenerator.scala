@@ -328,7 +328,7 @@ class CGenerator(spec: Spec) extends Generator(spec) {
     val methodDefsStructName = s"${resolveSymbolName(ident)}_method_defs"
     writeCFilePair(origin, ident, typeResolver.publicImports.toSeq, typeResolver.privateImports.toSeq)((w: IndentWriter) => {
       writeDoc(w, doc)
-      w.wl(s"""typedef struct _${typeName} { int unused; } * ${typeName};""")
+      w.wl(s"""typedef struct ${typeName}_s * ${typeName};""")
 
       if (i.ext.cc) {
         w.wl(s"""typedef djinni_proxy_class_ref ${proxyClassName};""")
