@@ -163,7 +163,7 @@ class CGenerator(spec: Spec) extends Generator(spec) {
 
     writeCFilePair(origin, ident, typeResolver.publicImports.toSeq, typeResolver.privateImports.toSeq)((w: IndentWriter) => {
       writeDoc(w, doc)
-      w.wl(s"""typedef djinni_record_ref ${typeName};""")
+      w.wl(s"""typedef struct ${typeName}_s * ${typeName};""")
       w.wl
 
       w.w(s"""${typeName} ${prefix}_new(""")
@@ -187,7 +187,7 @@ class CGenerator(spec: Spec) extends Generator(spec) {
       w.wl(") ")
 
       w.braced {
-        w.w(s"""return ::djinni::c_api::RecordTranslator<${selfCpp}>::make(""")
+        w.w(s"""return ::djinni::c_api::RecordTranslator<${selfCpp}, ${typeName}>::make(""")
 
         writeDelimited(w, resolvedFields, ", ")(t => {
           w.w(t.translator.toCpp(t.field.ident.name))
@@ -200,7 +200,7 @@ class CGenerator(spec: Spec) extends Generator(spec) {
 
       generateConstsImpl(selfCpp, prefix, resolvedConsts, w)
 
-      val toCppExpr = s"::djinni::c_api::RecordTranslator<${selfCpp}>::toCpp(instance)"
+      val toCppExpr = s"::djinni::c_api::RecordTranslator<${selfCpp}, ${typeName}>::toCpp(instance)"
       for (resolvedField <- resolvedFields) {
         val fieldName = resolvedField.field.ident.name
         val fieldTypename = resolvedField.translator.typename

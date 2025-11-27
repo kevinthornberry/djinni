@@ -96,7 +96,7 @@ class CTypeResolver(val ident: Ident, val spec: Spec, val cppMarshal: CppMarshal
       if (sharedPtr) {
         new CTypeTranslator(resolved.typename, true, s"::djinni::c_api::OptionalPtrTranslator<${resolved.translator}, ${resolved.typename}>")
       } else {
-        new CTypeTranslator(resolved.typename, true, s"::djinni::c_api::OptionalTranslator<${cppOptionalTemplate}, ${resolved.translator}>")
+        new CTypeTranslator(resolved.typename, true, s"::djinni::c_api::OptionalTranslator<${cppOptionalTemplate}, ${resolved.translator}, ${resolved.typename}>")
       }
     }
   }
@@ -210,7 +210,7 @@ class CTypeResolver(val ident: Ident, val spec: Spec, val cppMarshal: CppMarshal
         val typename = valueTypeName(name)
         s"::djinni::c_api::EnumTranslator<${cppTypename}, ${typename}>"
       }
-      case ast.Record(_, _, _, _) => s"::djinni::c_api::RecordTranslator<${cppTypename}>"
+      case ast.Record(_, _, _, _) => s"::djinni::c_api::RecordTranslator<${cppTypename}, ${ptrTypeName(name)}>"
       case ast.Interface(_, _, _) => s"::djinni::c_api::InterfaceTranslator<${cppTypename}, ${ptrTypeName(name)}>"
       case ast.ProtobufMessage(_, _, _, _, _) => throw new AssertionError("Unsupported")
     }
