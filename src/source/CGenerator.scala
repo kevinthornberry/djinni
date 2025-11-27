@@ -328,7 +328,7 @@ class CGenerator(spec: Spec) extends Generator(spec) {
     val methodDefsStructName = s"${resolveSymbolName(ident)}_method_defs"
     writeCFilePair(origin, ident, typeResolver.publicImports.toSeq, typeResolver.privateImports.toSeq)((w: IndentWriter) => {
       writeDoc(w, doc)
-      w.wl(s"""typedef djinni_interface_ref ${typeName};""")
+      w.wl(s"""typedef struct _${typeName} { int unused; } * ${typeName};""")
 
       if (i.ext.cc) {
         w.wl(s"""typedef djinni_proxy_class_ref ${proxyClassName};""")
@@ -379,13 +379,13 @@ class CGenerator(spec: Spec) extends Generator(spec) {
         val proxyClassNameCpp = writeProxyClass(w, ident, methodDefsStructName, resolvedMethods)
         w.w(s"${proxyClassName} ${prefix}_proxy_class_new(const ${methodDefsStructName} *method_defs, djinni_opaque_deallocator opaque_deallocator)")
         w.braced {
-          w.wl(s"return ::djinni::c_api::InterfaceTranslator<${selfCpp}>::makeProxyClass<${methodDefsStructName}>(method_defs, opaque_deallocator);")
+          w.wl(s"return ::djinni::c_api::InterfaceTranslator<${selfCpp}, ${proxyClassName}>::makeProxyClass<${methodDefsStructName}>(method_defs, opaque_deallocator);")
         }
         w.wl
 
         w.w(s"${typeName} ${prefix}_new(${proxyClassName} proxy_class, void *opaque)")
         w.braced {
-          w.wl(s"return ::djinni::c_api::InterfaceTranslator<${selfCpp}>::makeProxy<${methodDefsStructName}, ${proxyClassNameCpp}>(proxy_class, opaque);")
+          w.wl(s"return ::djinni::c_api::InterfaceTranslator<${selfCpp}, ${typeName}>::makeProxy<${methodDefsStructName}, ${proxyClassNameCpp}>(proxy_class, opaque);")
         }
         w.wl
       }
