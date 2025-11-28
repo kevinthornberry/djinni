@@ -45,6 +45,10 @@ class CTypeResolver(val ident: Ident, val spec: Spec, val cppMarshal: CppMarshal
     spec.cNamespace + str + "_ref"
   }
 
+  def holderStructName(str: String): String = {
+    ptrTypeName(str) + "_s"
+  }
+
   private def getPrimitiveOrNull(expr: MExpr): meta.MPrimitive = {
     expr.base match {
       case opaque: meta.MOpaque =>
@@ -94,9 +98,9 @@ class CTypeResolver(val ident: Ident, val spec: Spec, val cppMarshal: CppMarshal
       val sharedPtr = cppMarshal.bySharedPtr(expr)
 
       if (sharedPtr) {
-        new CTypeTranslator(resolved.typename, true, s"::djinni::c_api::OptionalPtrTranslator<${resolved.translator}>")
+        new CTypeTranslator(resolved.typename, true, s"::djinni::c_api::OptionalPtrTranslator<${resolved.translator}, ${resolved.typename}>")
       } else {
-        new CTypeTranslator(resolved.typename, true, s"::djinni::c_api::OptionalTranslator<${cppOptionalTemplate}, ${resolved.translator}>")
+        new CTypeTranslator(resolved.typename, true, s"::djinni::c_api::OptionalTranslator<${cppOptionalTemplate}, ${resolved.translator}, ${resolved.typename}>")
       }
     }
   }
@@ -210,8 +214,8 @@ class CTypeResolver(val ident: Ident, val spec: Spec, val cppMarshal: CppMarshal
         val typename = valueTypeName(name)
         s"::djinni::c_api::EnumTranslator<${cppTypename}, ${typename}>"
       }
-      case ast.Record(_, _, _, _) => s"::djinni::c_api::RecordTranslator<${cppTypename}>"
-      case ast.Interface(_, _, _) => s"::djinni::c_api::InterfaceTranslator<${cppTypename}>"
+      case ast.Record(_, _, _, _) => s"::djinni::c_api::RecordTranslator<${cppTypename}, ${ptrTypeName(name)}>"
+      case ast.Interface(_, _, _) => s"::djinni::c_api::InterfaceTranslator<${cppTypename}, ${ptrTypeName(name)}, ${holderStructName(name)}>"
       case ast.ProtobufMessage(_, _, _, _, _) => throw new AssertionError("Unsupported")
     }
   }
