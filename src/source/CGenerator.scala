@@ -157,13 +157,14 @@ class CGenerator(spec: Spec) extends Generator(spec) {
     val typeResolver = new CTypeResolver(ident, spec, cppMarshal)
     val prefix = resolveSymbolName(ident.name)
     val typeName = resolveRefSymbolTypeName(ident)
+    val typeNameRefStruct = s"${typeName}_s"
 
     val resolvedFields = r.fields.map(f => (new ResolvedField(f, typeResolver.resolve(f.ty.resolved))))
     val resolvedConsts = r.consts.map(r => new ResolvedConst(r, typeResolver.resolve(r.ty.resolved)))
 
     writeCFilePair(origin, ident, typeResolver.publicImports.toSeq, typeResolver.privateImports.toSeq)((w: IndentWriter) => {
       writeDoc(w, doc)
-      w.wl(s"""typedef struct ${typeName}_s * ${typeName};""")
+      w.wl(s"""typedef struct ${typeNameRefStruct} * ${typeName};""")
       w.wl
 
       w.w(s"""${typeName} ${prefix}_new(""")
@@ -182,6 +183,12 @@ class CGenerator(spec: Spec) extends Generator(spec) {
         w.wl
       }
     }, (w: IndentWriter) => {
+      w.wl(s"struct ${typeNameRefStruct} : ::djinni::RecordHolder<${selfCpp}>")
+      w.bracedSemi {
+        w.wl(s"using ::djinni::RecordHolder<${selfCpp}>::RecordHolder;")
+      }
+      w.wl
+
       w.w(s"""${typeName} ${prefix}_new(""")
       writeParamListWithResolvedFields(w, resolvedFields)
       w.wl(") ")
@@ -323,12 +330,13 @@ class CGenerator(spec: Spec) extends Generator(spec) {
 
     val prefix = resolveSymbolName(ident.name)
     val typeName = resolveRefSymbolTypeName(ident)
+    val typeNameRefStruct = s"${typeName}_s"
 
     val proxyClassName = s"${resolveSymbolName(ident)}_proxy_class_ref"
     val methodDefsStructName = s"${resolveSymbolName(ident)}_method_defs"
     writeCFilePair(origin, ident, typeResolver.publicImports.toSeq, typeResolver.privateImports.toSeq)((w: IndentWriter) => {
       writeDoc(w, doc)
-      w.wl(s"""typedef struct ${typeName}_s * ${typeName};""")
+      w.wl(s"""typedef struct ${typeNameRefStruct} * ${typeName};""")
 
       if (i.ext.cc) {
         w.wl(s"""typedef djinni_proxy_class_ref ${proxyClassName};""")
@@ -375,6 +383,12 @@ class CGenerator(spec: Spec) extends Generator(spec) {
       }
 
     }, (w: IndentWriter) => {
+      w.wl(s"struct ${typeNameRefStruct} : ::djinni::InterfaceHolder<${selfCpp}>")
+      w.bracedSemi {
+        w.wl(s"using ::djinni::InterfaceHolder<${selfCpp}>::InterfaceHolder;")
+      }
+      w.wl
+
       if (i.ext.cc) {
         val proxyClassNameCpp = writeProxyClass(w, ident, methodDefsStructName, resolvedMethods)
         w.w(s"${proxyClassName} ${prefix}_proxy_class_new(const ${methodDefsStructName} *method_defs, djinni_opaque_deallocator opaque_deallocator)")
@@ -414,7 +428,7 @@ class CGenerator(spec: Spec) extends Generator(spec) {
           if (resolvedMethod.method.static) {
             w.w(s"""${selfCpp}::${resolvedMethod.method.ident.name}(""")
           } else {
-            w.w(s"""::djinni::c_api::InterfaceTranslator<${selfCpp}>::toCpp(instance)->${resolvedMethod.method.ident.name}(""")
+            w.w(s"""::djinni::c_api::InterfaceTranslator<${selfCpp}, ${typeName}>::toCpp(instance)->${resolvedMethod.method.ident.name}(""")
           }
 
           writeDelimited(w, resolvedMethod.parameters, ", ")(p => {
