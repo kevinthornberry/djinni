@@ -102,7 +102,8 @@ object MExtern {
                 typename: String,
                 publicHeader: String,
                 privateHeader: String,
-                  translator: String,
+                implHeader: String,
+                translator: String,
                 ignoreTypeParams: Boolean
               )
 }

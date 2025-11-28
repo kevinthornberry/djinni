@@ -238,7 +238,8 @@ class YamlGenerator(spec: Spec) extends Generator(spec) {
     "typename" -> QuotedString(cMarshal.typename(td)),
     "translator" -> QuotedString(cMarshal.helperName(td)),
     "public_header" -> QuotedString(cMarshal.publicHeader(td)),
-    "private_header" -> QuotedString(cMarshal.privateHeader(td))
+    "private_header" -> QuotedString(cMarshal.privateHeader(td)),
+    "impl_header" -> QuotedString(cMarshal.implHeader(td))
   )
 
   // TODO: there has to be a way to do all this without the MExpr/Meta conversions?
@@ -341,6 +342,7 @@ object YamlGenerator {
       getOptionalField(td, "c", "typename"),
       getOptionalField(td, "c", "public_header"),
       getOptionalField(td, "c", "private_header"),
+      getOptionalField(td, "c", "impl_header", ""),
       getOptionalField(td, "c", "translator"),
       getOptionalField(td, "c", "ignore_type_params", false)
   )

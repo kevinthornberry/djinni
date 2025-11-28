@@ -45,6 +45,10 @@ class CTypeResolver(val ident: Ident, val spec: Spec, val cppMarshal: CppMarshal
     spec.cNamespace + str + "_ref"
   }
 
+  def holderStructName(str: String): String = {
+    ptrTypeName(str) + "_s"
+  }
+
   private def getPrimitiveOrNull(expr: MExpr): meta.MPrimitive = {
     expr.base match {
       case opaque: meta.MOpaque =>
@@ -142,7 +146,10 @@ class CTypeResolver(val ident: Ident, val spec: Spec, val cppMarshal: CppMarshal
 
   private def updatePrivateImports(meta: Meta): Unit = {
     for (r <- cppMarshal.hppReferences(meta, ident.name, forwardDeclareOnly = false)) r match {
-      case ImportRef(arg) => privateImports.add("#include " + arg)
+      case ImportRef(arg) => {
+        //println(s"updatePrivateImports for ${ident.name} : ${arg}")
+        privateImports.add("#include " + arg)
+      }
       case _ =>
     }
   }
@@ -152,6 +159,7 @@ class CTypeResolver(val ident: Ident, val spec: Spec, val cppMarshal: CppMarshal
   }
 
   private def addPublicImportFromDef(name: String) = {
+    println(s"addPublicImportFromDef for ${ident.name} : ${name}.h")
     addPublicImport(q(spec.cIncludePrefix + name + ".h"))
   }
 
@@ -171,8 +179,14 @@ class CTypeResolver(val ident: Ident, val spec: Spec, val cppMarshal: CppMarshal
 
   private def resolveExtern(expr: MExpr, defType: meta.DefType, cpp: meta.MExtern.Cpp, c: meta.MExtern.C, asBoxed: Boolean): CTypeTranslator = {
     updatePrivateImports(expr.base)
+    println(s"resolveExtern(public) for ${ident.name} : ${cppMarshal.resolveExtCppHdr(c.publicHeader)}")
     addPublicImport(cppMarshal.resolveExtCppHdr(c.publicHeader))
+    println(s"resolveExtern(private) for ${ident.name} : ${cppMarshal.resolveExtCppHdr(c.privateHeader)}")
     privateImports.add("#include " + cppMarshal.resolveExtCppHdr(c.privateHeader))
+    println(s"resolveExtern(impl) for ${ident.name} : ${cppMarshal.resolveExtCppHdr(c.implHeader)}")
+    if (c.implHeader.nonEmpty) {
+      privateImports.add("#include " + cppMarshal.resolveExtCppHdr(c.implHeader))
+    }
 
     if (expr.args.nonEmpty) {
       val templateArgs = expr.args.map(a => cppMarshal.fqTypename(a)).mkString(", ")
@@ -211,7 +225,7 @@ class CTypeResolver(val ident: Ident, val spec: Spec, val cppMarshal: CppMarshal
         s"::djinni::c_api::EnumTranslator<${cppTypename}, ${typename}>"
       }
       case ast.Record(_, _, _, _) => s"::djinni::c_api::RecordTranslator<${cppTypename}, ${ptrTypeName(name)}>"
-      case ast.Interface(_, _, _) => s"::djinni::c_api::InterfaceTranslator<${cppTypename}, ${ptrTypeName(name)}>"
+      case ast.Interface(_, _, _) => s"::djinni::c_api::InterfaceTranslator<${cppTypename}, ${ptrTypeName(name)}, ${holderStructName(name)}>"
       case ast.ProtobufMessage(_, _, _, _, _) => throw new AssertionError("Unsupported")
     }
   }
@@ -230,7 +244,15 @@ class CTypeResolver(val ident: Ident, val spec: Spec, val cppMarshal: CppMarshal
         addPublicImportFromDef(name)
         body match {
           case ast.Enum(_, _) => resolveEnum(name, body, asBoxed)
-          case _ => new CTypeTranslator(ptrTypeName(name), true, getTranslatorNameForType(name, body))
+          case _ => {
+            body match {
+              case ast.Interface(_, _, _) | ast.Record(_, _, _, _) =>
+                // privateImports.add("#include " + arg)
+                privateImports.add("#include " + q(spec.cIncludePrefix + name + "_impl.hpp"))
+              case _ =>
+            }
+            new CTypeTranslator(ptrTypeName(name), true, getTranslatorNameForType(name, body))
+          }
         }
       }
       case meta.MExtern(_, _, defType, _, cpp, _, _, _, _, _, _, _, _, _, c) => resolveExtern(expr, defType, cpp, c, asBoxed)
