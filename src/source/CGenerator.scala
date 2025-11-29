@@ -75,6 +75,12 @@ class CGenerator(spec: Spec) extends Generator(spec) {
 
   private def writeCFilePair(origin: String, ident: Ident, td: ast.TypeDef, publicIncludes: Seq[String], privateIncludes: Seq[String])(header: IndentWriter => Unit, impl: IndentWriter => Unit): Unit = {
     writeCFile(origin, ident, "h", (w: IndentWriter) => {
+      val hasRefStruct = td match {
+        case Interface(_, _, _) => true
+        case Record(_, _, _, _) => true
+        case _ => false
+      }
+
       w.wl("#pragma once")
       w.wl
 
@@ -83,10 +89,12 @@ class CGenerator(spec: Spec) extends Generator(spec) {
 
       w.wl
 
-      w.wl("#ifdef DJINNI_C_REF_STRUCT_IMPL")
-      w.wl("#include " + q(spec.cppBaseLibIncludePrefix + "djinni_c_translators.hpp"))
-      w.wl("#include " + privateHeader(ident))
-      w.wl("#endif // DJINNI_C_REF_STRUCT_IMPL")
+      if (hasRefStruct) {
+        w.wl("#ifdef DJINNI_C_REF_STRUCT_IMPL")
+        w.wl("#include " + q(spec.cppBaseLibIncludePrefix + "djinni_c_translators.hpp"))
+        w.wl("#include " + privateHeader(ident))
+        w.wl("#endif // DJINNI_C_REF_STRUCT_IMPL")
+      }
 
       w.wl
 
@@ -97,11 +105,8 @@ class CGenerator(spec: Spec) extends Generator(spec) {
 
       writeExternCEnd(w)
 
-      td match {
-        case Interface(_, _, _) | Record(_, _, _, _) =>
-          w.wl
-          generateRefStruct(origin, ident, td, w)
-        case _ =>
+      if (hasRefStruct) {
+        generateRefStruct(origin, ident, td, w)
       }
     })
 

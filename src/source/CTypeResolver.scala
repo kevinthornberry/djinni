@@ -45,7 +45,7 @@ class CTypeResolver(val ident: Ident, val spec: Spec, val cppMarshal: CppMarshal
     spec.cNamespace + str + "_ref"
   }
 
-  def holderStructName(str: String): String = {
+  def refStructName(str: String): String = {
     ptrTypeName(str) + "_s"
   }
 
@@ -215,7 +215,7 @@ class CTypeResolver(val ident: Ident, val spec: Spec, val cppMarshal: CppMarshal
         s"::djinni::c_api::EnumTranslator<${cppTypename}, ${typename}>"
       }
       case ast.Record(_, _, _, _) => s"::djinni::c_api::RecordTranslator<${cppTypename}, ${ptrTypeName(name)}>"
-      case ast.Interface(_, _, _) => s"::djinni::c_api::InterfaceTranslator<${cppTypename}, ${ptrTypeName(name)}, ${holderStructName(name)}>"
+      case ast.Interface(_, _, _) => s"::djinni::c_api::InterfaceTranslator<${cppTypename}, ${ptrTypeName(name)}, ${refStructName(name)}>"
       case ast.ProtobufMessage(_, _, _, _, _) => throw new AssertionError("Unsupported")
     }
   }
