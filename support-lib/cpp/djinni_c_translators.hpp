@@ -115,9 +115,10 @@ template <typename CppOpt, typename COpt> struct PrimitiveOptionalTranslator {
   }
 };
 
-template <typename CppOpt, typename Tr> struct OptionalTranslator {
+template <typename CppOpt, typename Tr, typename CRef = djinni_ref>
+struct OptionalTranslator {
   using CppType = CppOpt;
-  using CType = djinni_ref;
+  using CType = CRef;
 
   static CType fromCpp(const CppType &value) {
     if (!value) {
@@ -135,7 +136,7 @@ template <typename CppOpt, typename Tr> struct OptionalTranslator {
     }
   }
 
-  static CppType toCpp(djinni_ref ptr) {
+  static CppType toCpp(CType ptr) {
     if (ptr == nullptr) {
       return CppType();
     } else {
@@ -144,9 +145,9 @@ template <typename CppOpt, typename Tr> struct OptionalTranslator {
   }
 };
 
-template <typename Tr> struct OptionalPtrTranslator {
+template <typename Tr, typename CRef = djinni_ref> struct OptionalPtrTranslator {
   using CppType = typename Tr::CppType;
-  using CType = djinni_ref;
+  using CType = CRef;
 
   static CType fromCpp(const CppType &value) {
     if (value == nullptr) {
@@ -184,7 +185,7 @@ template <typename Tr> struct ListTranslator {
 
     for (size_t i = 0; i < length; i++) {
       auto item = djinni_array_get_value(value, i);
-      output.emplace_back(Tr::toCpp(item));
+      output.emplace_back(Tr::toCpp(reinterpret_cast<typename Tr::CType>(item)));
       djinni_ref_release(item);
     }
 
@@ -250,7 +251,9 @@ template <typename TrK, typename TrV> struct MapTranslator {
     for (size_t i = 0; i < length; i++) {
       auto key = djinni_keyval_array_get_key(key_values, i);
       auto value = djinni_keyval_array_get_value(key_values, i);
-      output.try_emplace(TrK::toCpp(key), TrV::toCpp(value));
+      output.try_emplace(
+        TrK::toCpp(reinterpret_cast<typename TrK::CType>(key)),
+        TrV::toCpp(reinterpret_cast<typename TrV::CType>(value)));
       djinni_ref_release(key);
       djinni_ref_release(value);
     }
@@ -274,16 +277,21 @@ template <typename TrK, typename TrV> struct MapTranslator {
   }
 };
 
-template <typename T> struct RecordTranslator {
+template <typename T, typename CRef = djinni_record_ref>
+struct RecordTranslator {
   using CppType = T;
-  using CType = djinni_record_ref;
+  using CType = CRef;
 
-  template <typename... Args> static djinni_record_ref make(Args &&...args) {
+  template <typename... Args> static CType make(Args &&...args) {
     auto *obj = new RecordHolder<T>(T(std::forward<Args>(args)...));
-    return toC(obj);
+    if constexpr (std::is_same_v<CRef, void*>) {
+      return reinterpret_cast<CRef>(obj);
+    } else {
+      return static_cast<CRef>(obj);
+    }
   }
 
-  static CppType &toCpp(djinni_record_ref ref) {
+  static CppType &toCpp(CType ref) {
     auto *record = fromC<RecordHolder<T>>(ref);
     if (record == nullptr) {
       std::abort();
@@ -297,12 +305,13 @@ template <typename T> struct RecordTranslator {
   static CType fromCpp(const CppType &value) { return make(value); }
 };
 
-template <typename T> struct InterfaceTranslator {
+template <typename T, typename CRef = djinni_interface_ref, typename Holder = InterfaceHolder<T>>
+struct InterfaceTranslator {
   using CppType = std::shared_ptr<T>;
-  using CType = djinni_interface_ref;
+  using CType = CRef;
 
   static const CppType &toCpp(CType ref) {
-    auto *i = fromC<InterfaceHolder<T>>(ref);
+    auto *i = fromC<Holder>(ref);
     if (i == nullptr) {
       std::abort();
     }
@@ -311,8 +320,12 @@ template <typename T> struct InterfaceTranslator {
   }
 
   static CType fromCpp(CppType value) {
-    Object *obj = new InterfaceHolder<T>(std::move(value));
-    return toC(obj);
+    Object *obj = new Holder(std::move(value));
+    if constexpr (std::is_same_v<CRef, void*>) {
+      return reinterpret_cast<CRef>(obj);
+    } else {
+      return static_cast<CRef>(obj);
+    }
   }
 
   template <typename PT>
@@ -325,7 +338,7 @@ template <typename T> struct InterfaceTranslator {
   }
 
   template <typename PT, typename P>
-  static djinni_interface_ref makeProxy(djinni_proxy_class_ref proxyClassRef,
+  static CType makeProxy(djinni_proxy_class_ref proxyClassRef,
                                         void *opaque) {
     auto *proxyClass = fromC<::djinni::ProxyClass<PT>>(proxyClassRef);
 
